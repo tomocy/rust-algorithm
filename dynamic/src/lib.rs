@@ -7,7 +7,7 @@ fn dynamic(size: u32, items: Vec<Item>) -> f32 {
     items
         .iter()
         .fold(Record::new(None), |mut record, item| {
-            record.fill(&col, item);
+            record.fill(col, item);
             Record::new(Some(Box::new(record.clone())))
         })
         .get_prev_price(col.end)
@@ -43,8 +43,8 @@ impl Record {
         }
     }
 
-    fn fill(&mut self, col: &Column, item: &Item) {
-        col.for_base(|cap| {
+    fn fill(&mut self, col: Column, item: &Item) {
+        col.for_each(|cap| {
             if cap < item.weight {
                 self.set_price(cap, self.get_prev_price(cap));
                 return;
@@ -77,25 +77,37 @@ impl Record {
     }
 }
 
+#[derive(Clone, Copy)]
 struct Column {
     base: f32,
-    start: f32,
+    curr: f32,
+    next: f32,
     end: f32,
 }
 
 impl Column {
     fn new(base: f32, start: f32, end: f32) -> Self {
-        Self { base, start, end }
+        Self {
+            base,
+            curr: 0.0,
+            next: start,
+            end,
+        }
     }
+}
 
-    fn for_base<T>(&self, mut invoke: T)
-    where
-        T: FnMut(f32),
-    {
-        let mut i = self.start;
-        while i <= self.end {
-            invoke(i);
-            i += self.base;
+impl Iterator for Column {
+    type Item = f32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = self.next + self.base;
+        self.curr = self.next;
+        self.next = next;
+
+        if self.curr <= self.end {
+            Some(self.curr)
+        } else {
+            None
         }
     }
 }
